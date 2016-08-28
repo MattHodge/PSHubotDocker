@@ -5,6 +5,7 @@
   "author": "Matthew Hodgkins <hodgkins.io>",
   "description": "Hubot and PowerShell on Linux",
   "dependencies": {
+    "ascii-table": "0.0.9",
     "hubot": "^2.19.0",
     "hubot-auth": "^2.0.0",
     "hubot-diagnostics": "0.0.1",
@@ -20,6 +21,13 @@
     "node": "0.10.x"
   },
   "scripts": {
-    "start": "./bin/hubot"
+    "start": "./bin/hubot -a shell"
+  },
+  "devDependencies": {
+    "eslint": "^3.4.0",
+    "eslint-config-airbnb": "^10.0.1",
+    "eslint-plugin-import": "^1.14.0",
+    "eslint-plugin-jsx-a11y": "^2.2.0",
+    "eslint-plugin-react": "^6.2.0"
   }
 }
