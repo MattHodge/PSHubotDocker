@@ -1,3 +1,5 @@
+/* eslint no-console: ["error", { allow: ["warn", "error", "log"] }] */
+
 // Description:
 //   get processes from the local bot
 //
@@ -9,6 +11,13 @@
 //
 // Commands:
 //   get process name - gets a local process on the hubot machine
+
+
+const exec = require('child_process').exec;
+const AsciiTable = require('ascii-table');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 const psScriptToInvoke = 'Get-ProcessHubot.ps1';
 
@@ -34,7 +43,7 @@ function createTable(resultOutput) {
   const resultsParsed = JSON.parse(resultOutput);
   console.log(resultsParsed);
 
-  const AsciiTable = require('ascii-table');
+
   const table = new AsciiTable('');
 
   // construct the heading by getting the keys for the first result
@@ -85,19 +94,17 @@ function throwPSError(robot, msg, errorObject) {
 
   console.log(JSON.stringify(msgData));
   // send the msg
-  //robot.adapter.customMessage(msgData);
+  // robot.adapter.customMessage(msgData);
   msg.send(msgData);
 }
 
 module.exports = robot => {
   robot.respond(/get process (.*)$/i, msg => {
     // load dependencies
-    const path = require('path');
-    const os = require('os');
-    const fs = require('fs');
+
 
     const processName = msg.match[1];
-    console.log('ProcessName: ' + processName);
+    console.log(`ProcessName: ${processName}`);
 
     // create the PowerShell script to be invoked
     const psScript = `
@@ -116,70 +123,74 @@ module.exports = robot => {
     // find the temporary path for the script
     const tempPath = path.resolve(os.tmpdir(), 'test.ps1');
     // save the script
-    fs.writeFile(tempPath, psScript, function (err) {
+    fs.writeFile(tempPath, psScript, (err) => {
       if (err) {
-        return console.log(err);
+        console.log(err);
+        return false;
+      }
+      console.log(`Saving temporary PowerShell file at: ${tempPath}`);
+      return true;
+    });
+    // const ps = exec('powershell', ['-file', tempPath]);
+
+    exec(`powershell -file ${tempPath}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`exec error: ${error}`);
+        return;
       }
 
-      console.log(`Saving temporary PowerShell file at: ${tempPath}`);
-    });
-    const spawn = require('child_process').spawn;
-    const ps = spawn('powershell', ['-file', tempPath]);
+      if (stdout) {
+        console.log(`stdout: ${stdout}`);
+        // convert the powershell result from json into an ojbect
+        const result = JSON.parse(stdout);
+        console.log(`result.success ${result.success}`);
+        console.log(`result.result_is_json ${result.result_is_json}`);
 
-    ps.stdout.on('data', (data) => {
-      console.log(`stdout: ${data}`);
-      // convert the powershell result from json into an ojbect
-      const result = JSON.parse(data);
-      console.log('result ' + result.output);
+        if (result.success === true) {
+          // Build a string to send back to the channel and
+          // include the output (this comes from the JSON output)
+          const returnValue = result.result_is_json ? createTable(result.output) : `\`\`\`${result.output}\`\`\``;
+          const textString = `:white_check_mark: Success calling \`${psScriptToInvoke}\``;
+          const msgData = getSlackAttachmentMsg(
+            msg.message.room,
+            textString,
+            'good',
+            result.output,
+            [{
+              title: 'Processes',
+              value: returnValue,
+            }]
+          );
 
-      if (result.success === true) {
-        // Build a string to send back to the channel and
-        // include the output (this comes from the JSON output)
-        const returnValue = result.result_is_json ? createTable(result.output) : `\`\`\`${result.output}\`\`\``;
-        const textString = `:white_check_mark: Success calling \`${psScriptToInvoke}\``;
+          console.log(JSON.stringify(msgData));
+          // robot.adapter.customMessage(msgData);
+          msg.send(msgData);
+        } else {
+          console.log('Invoke-HubotPowerShell.ps1 caught an error. Handling it.');
+          throwPSError(robot, msg, result.error);
+        }
+      }
+
+      if (stderr) {
+        console.log(`stderr: ${stderr}`);
+        const textString = ':fire: Error when calling `Invoke-HubotPowerShell.ps1`';
+
         const msgData = getSlackAttachmentMsg(
           msg.message.room,
           textString,
-          'good',
-          result.output,
+          'danger',
+          stderr,
           [{
-            title: 'Processes',
-            value: returnValue,
+            title: 'Error From Node.js',
+            value: `\`\`\`\n${stderr}\n\`\`\``,
           }]
         );
 
         console.log(JSON.stringify(msgData));
-        //robot.adapter.customMessage(msgData);
+
+        // robot.adapter.customMessage(msgData);
         msg.send(msgData);
-      } else {
-        console.log('Invoke-HubotPowerShell.ps1 caught an error. Handling it.');
-        throwPSError(robot, msg, result.error);
       }
-    });
-
-    ps.stderr.on('data', (data) => {
-      console.log(`stderr: ${data}`);
-      const textString = `:fire: Error when calling \`Invoke-HubotPowerShell.ps1\``;
-
-      const msgData = getSlackAttachmentMsg(
-        msg.message.room,
-        textString,
-        'danger',
-        data,
-        [{
-          title: 'Error From Node.js',
-          value: `\`\`\`\n${data}\n\`\`\``,
-        }]
-      );
-
-      console.log(JSON.stringify(msgData));
-
-      //robot.adapter.customMessage(msgData);
-      msg.send(msgData);
-    });
-
-    ps.on('close', (code) => {
-      console.log(`child process exited with code ${code}`);
     });
   });
 };
