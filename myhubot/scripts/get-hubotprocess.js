@@ -40,8 +40,7 @@ function getSlackAttachmentMsg(channel, text, attachmentColor, fallback, fields)
 function createTable(resultOutput, excludedKeys) {
   // parse the json sent from PS
   const resultsParsed = JSON.parse(resultOutput);
-  console.log('resultsParsed:');
-  console.log(resultsParsed);
+  console.log('resultsParsed:', resultsParsed);
 
   function removeKeys(result) {
     const newRes = result;
@@ -57,8 +56,7 @@ function createTable(resultOutput, excludedKeys) {
 
   const cleanedResults = resultsParsed.filter(removeKeys);
 
-  console.log('cleanedResults:');
-  console.log(cleanedResults);
+  console.log('cleanedResults:', cleanedResults);
 
   const table = new AsciiTable('');
 
