@@ -7,7 +7,7 @@
    $myhashtable = @{ Name = 'Explorer' }
    Invoke-HubotPowerShell -FilePath .\Get-ProcessHubot.ps1 -Splat $myhashtable
 .EXAMPLE
-   Invoke-HubotPowerShell -FilePath ./Get-ProcessHubot.ps1 -Hostname 172.28.128.13 -Username vagrant -KeyPath /Users/Matthew/.ssh/powershell_win2012 -Splat @{ Name = 'Explorer' }
+   Invoke-HubotPowerShell -FilePath ./Get-ProcessHubot.ps1 -HostName 172.28.128.13 -Username vagrant -KeyPath /Users/Matthew/.ssh/powershell_win2012 -Splat @{ Name = 'Explorer' }
 
    Execute the command over SSH from MacOS
 #>
@@ -36,10 +36,10 @@ function Invoke-HubotPowerShell
         [System.Collections.Hashtable]
         $Splat,
 
-        # Hostname to connect to via SSH
+        # HostName to connect to via SSH
         [Parameter(Mandatory=$false)]
         [string]
-        $Hostname,
+        $HostName,
 
         # Port if running the command remotely over WinRM
         [Parameter(Mandatory=$false)]
@@ -49,7 +49,7 @@ function Invoke-HubotPowerShell
         # SSH Port
         [Parameter(Mandatory=$false)]
         [string]
-        $Username,
+        $UserName,
 
         # Path to SSH Private Key
         [Parameter(Mandatory=$false)]
@@ -74,9 +74,9 @@ function Invoke-HubotPowerShell
             $newPSSessionSplat.Port = $Port
         }
 
-        if ($PSBoundParameters.ContainsKey('Username'))
+        if ($PSBoundParameters.ContainsKey('UserName'))
         {
-            $newPSSessionSplat.Username = $Username
+            $newPSSessionSplat.UserName = $UserName
         }
 
         if ($PSBoundParameters.ContainsKey('KeyPath'))
@@ -84,10 +84,11 @@ function Invoke-HubotPowerShell
             $newPSSessionSplat.KeyPath = $KeyPath
         }
 
-        if ($PSBoundParameters.ContainsKey('Hostname'))
+        if ($PSBoundParameters.ContainsKey('HostName'))
         {
-            $newPSSessionSplat.Hostname = $Hostname
+            $newPSSessionSplat.HostName = $HostName
 
+            Write-Verbose ($newPSSessionSplat | ConvertTo-Json)
             # splat the new session params
             $s = New-PSSession @newPSSessionSplat
         }
@@ -97,7 +98,7 @@ function Invoke-HubotPowerShell
             splat = $Splat
         }
 
-        if ($PSBoundParameters.ContainsKey('Hostname'))
+        if ($PSBoundParameters.ContainsKey('HostName'))
         {
             $scriptOutput = Invoke-Command -Session $s -ArgumentList @($paramObj) -ErrorAction Stop -ScriptBlock {
                 $paramObj = $args[0]

@@ -1,5 +1,3 @@
-/* eslint no-console: ["error", { allow: ["warn", "error", "log"] }] */
-
 // Description:
 //   get processes from the local bot
 //
@@ -10,8 +8,9 @@
 //   None
 //
 // Commands:
-//   get process name - gets a local process on the hubot machine
+//   get process <name> - gets a local process on the hubot machine
 
+/* eslint no-console: ["error", { allow: ["warn", "error", "log"] }] */
 
 const exec = require('child_process').exec;
 const AsciiTable = require('ascii-table');
@@ -38,11 +37,28 @@ function getSlackAttachmentMsg(channel, text, attachmentColor, fallback, fields)
   return msgData;
 }
 
-function createTable(resultOutput) {
+function createTable(resultOutput, excludedKeys) {
   // parse the json sent from PS
   const resultsParsed = JSON.parse(resultOutput);
+  console.log('resultsParsed:');
   console.log(resultsParsed);
 
+  function removeKeys(result) {
+    const newRes = result;
+    // if the key is in the excludedKeys, delete it
+    Object.keys(result).forEach((key) => {
+      if (excludedKeys.indexOf(key) !== -1) {
+        delete newRes[key];
+      }
+    });
+
+    return newRes;
+  }
+
+  const cleanedResults = resultsParsed.filter(removeKeys);
+
+  console.log('cleanedResults:');
+  console.log(cleanedResults);
 
   const table = new AsciiTable('');
 
@@ -50,9 +66,9 @@ function createTable(resultOutput) {
   table.setHeading(Object.keys(resultsParsed[0]));
 
   // build each row of the table
-  resultsParsed.forEach((x) => {
+  cleanedResults.forEach((x) => {
     const tableRows = [];
-    Object.keys(x).forEach(function (key) {
+    Object.keys(x).forEach((key) => {
       tableRows.push(x[key]);
     });
     table.addRow(tableRows);
@@ -99,12 +115,12 @@ function throwPSError(robot, msg, errorObject) {
 }
 
 module.exports = robot => {
-  robot.respond(/get process (.*)$/i, msg => {
-    // load dependencies
-
-
+  robot.respond(/get process (.+?) (.*)$/i, msg => {
     const processName = msg.match[1];
+    const hostName = msg.match[2];
+
     console.log(`ProcessName: ${processName}`);
+    console.log(`HostName: ${hostName}`);
 
     // create the PowerShell script to be invoked
     const psScript = `
@@ -112,9 +128,10 @@ module.exports = robot => {
 
       $invokeSplat = @{
         FilePath = '${path.resolve(__dirname, psScriptToInvoke)}'
-        Splat = @{
-          Name = '${processName}'
-        }
+        Splat = @{ Name = '${processName}' }
+        Hostname = '${hostName}'
+        UserName = 'vagrant'
+        KeyPath = '/myhubot/ssh_keys/my_ssh_key'
       }
 
       Invoke-HubotPowerShell @invokeSplat
@@ -131,7 +148,6 @@ module.exports = robot => {
       console.log(`Saving temporary PowerShell file at: ${tempPath}`);
       return true;
     });
-    // const ps = exec('powershell', ['-file', tempPath]);
 
     exec(`powershell -file ${tempPath}`, (error, stdout, stderr) => {
       if (error) {
@@ -149,7 +165,9 @@ module.exports = robot => {
         if (result.success === true) {
           // Build a string to send back to the channel and
           // include the output (this comes from the JSON output)
-          const returnValue = result.result_is_json ? createTable(result.output) : `\`\`\`${result.output}\`\`\``;
+          const returnValue = result.result_is_json ? createTable(
+            result.output,
+            ['RunspaceId', 'PSShowComputerName', 'Handles']) : `\`\`\`${result.output}\`\`\``;
           const textString = `:white_check_mark: Success calling \`${psScriptToInvoke}\``;
           const msgData = getSlackAttachmentMsg(
             msg.message.room,

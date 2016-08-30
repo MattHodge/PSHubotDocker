@@ -1,0 +1,8 @@
+version: '2'
+services:
+  hubot:
+    image: matthodge/pshubot
+    environment:
+      - HUBOT_SLACK_TOKEN=xoxb-19034991254-yK39f10mDuB6XLOXdkzenvvI
+    volumes:
+      - ./ssh/:/ssh/
